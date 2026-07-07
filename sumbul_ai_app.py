@@ -36,7 +36,7 @@ st.markdown("""
             padding: 30px;
             border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-top: 20px;
+            margin-top: 10px;
         }
         .premium-badge {
             background: linear-gradient(135deg, #D4AF37, #FFD700);
@@ -74,10 +74,10 @@ AVATAR_AI_GERAK = "https://media.giphy.com/media/3v1Sz0oTKRsly/giphy.gif"
 # ==========================================
 # 2. SEED STATE & DATABASE LOKAL USER
 # ==========================================
-# Database akun terdaftar buatan (untuk simulasi pendaftaran username/password)
+# Berfungsi sebagai memori penyimpanan akun terdaftar sementara
 if "db_users" not in st.session_state:
     st.session_state.db_users = {
-        "user123": "password123"  # Akun bawaan contoh awal
+        "admin": "admin123"  # Akun default bawaan sistem untuk uji coba
     }
 
 if "is_logged_in" not in st.session_state:
@@ -103,6 +103,13 @@ if "api_gateway_config" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# State pembantu untuk perpindahan tab otomatis pasca registrasi
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = 0
+
+if "prefilled_user" not in st.session_state:
+    st.session_state.prefilled_user = ""
+
 # ==========================================
 # 3. KONEKSI GOOGLE GENAI CLIENT
 # ==========================================
@@ -114,20 +121,25 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 4. HALAMAN KHUSUS LOGIN & REGISTRASI (GATEWAY AUTH)
+# 4. HALAMAN HUBUNGAN GATEWAY AUTH
 # ==========================================
 if not st.session_state.is_logged_in:
     st.markdown('<p class="main-title">Sumbul AI Access Gateway</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Silakan masuk atau buat akun untuk mulai menggunakan Asisten AI</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Silakan masuk atau daftarkan akun baru Anda</p>', unsafe_allow_html=True)
     
-    # Membuat Tab untuk membedakan Menu Login dan Daftar Manual
-    tab_login, tab_register, tab_google = st.tabs(["🔐 Login Akun", "📝 Daftar Akun Baru", "🌐 Sign-in with Google"])
+    # Mengontrol indeks tab secara dinamis berdasarkan alur registrasi user
+    pilihan_tab = ["🔐 Login Akun", "📝 Daftar Akun Baru", "🌐 Sign-in with Google"]
+    tab_aktif = st.radio("Pilih Menu Autentikasi:", pilihan_tab, horizontal=True, label_visibility="collapsed")
     
-    with tab_login:
+    if tab_aktif == "🔐 Login Akun":
         st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-        login_user = st.text_input("Username / Email:", key="log_u")
+        st.markdown("### Masuk ke Aplikasi")
+        
+        # Jika user baru daftar, kolom ini otomatis terisi username barunya
+        login_user = st.text_input("Username / Email:", value=st.session_state.prefilled_user, key="log_u")
         login_pass = st.text_input("Password:", type="password", key="log_p")
-        if st.button("Masuk Ke Aplikasi", type="primary", use_container_width=True):
+        
+        if st.button("Masuk Sekarang", type="primary", use_container_width=True):
             if login_user in st.session_state.db_users and st.session_state.db_users[login_user] == login_pass:
                 st.session_state.is_logged_in = True
                 st.session_state.logged_username = login_user
@@ -135,46 +147,53 @@ if not st.session_state.is_logged_in:
                 time.sleep(0.5)
                 st.rerun()
             else:
-                st.error("Username atau Password salah! Periksa kembali atau daftar akun baru.")
+                st.error("Username atau Password salah! Silakan periksa kembali akun Anda.")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    with tab_register:
+    elif tab_aktif == "📝 Daftar Akun Baru":
         st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+        st.markdown("### Registrasi Akun Pengguna Baru")
         reg_user = st.text_input("Buat Username Baru:", key="reg_u")
         reg_pass = st.text_input("Buat Password Aman:", type="password", key="reg_p")
-        reg_pass_conf = st.text_input("Ulangi Password:", type="password", key="reg_p_c")
+        reg_pass_conf = st.text_input("Konfirmasi Password:", type="password", key="reg_p_c")
         
-        if st.button("Daftarkan Akun", use_container_width=True):
+        if st.button("Daftarkan Akun", use_container_width=True, type="primary"):
             if not reg_user or not reg_pass:
                 st.error("Form pendaftaran tidak boleh kosong!")
             elif reg_user in st.session_state.db_users:
                 st.error("Username tersebut sudah terdaftar! Gunakan nama lain.")
             elif reg_pass != reg_pass_conf:
-                st.error("Konfirmasi password tidak cocok!")
+                st.error("Konfirmasi password tidak sesuai!")
             else:
-                # Simpan akun baru ke database lokal session
+                # Memasukkan akun baru ke dalam database lokal
                 st.session_state.db_users[reg_user] = reg_pass
-                st.success("🎉 Pendaftaran Berhasil! Silakan klik Tab 'Login Akun' untuk masuk.")
+                # Mengisi prefilled agar di menu login user tidak repot mengetik ulang username
+                st.session_state.prefilled_user = reg_user
+                st.success(f"🎉 Registrasi Sukses untuk '{reg_user}'! Akun Anda telah aktif. Silakan beralih ke menu 'Login Akun' di atas untuk masuk.")
+                st.balloons()
         st.markdown('</div>', unsafe_allow_html=True)
         
-    with tab_google:
+    elif tab_aktif == "🌐 Sign-in with Google":
         st.markdown('<div class="auth-container" style="text-align:center;">', unsafe_allow_html=True)
-        st.write("Hubungkan langsung menggunakan akun Google / Gmail aktif Anda secara instan.")
+        st.markdown("### Google Auth Gateway")
+        st.write("Hubungkan sistem dengan akun Google / Gmail aktif Anda secara instan.")
         
-        simulasi_gmail = st.text_input("Masukkan Alamat Gmail Anda:", placeholder="contoh: userbaru@gmail.com", key="g_mail")
+        simulasi_gmail = st.text_input("Masukkan Alamat Gmail Anda:", placeholder="contoh: budi@gmail.com", key="g_mail")
         
-        if st.button("🌐 Lanjutkan via Google Auth Gateway", use_container_width=True, type="secondary"):
+        if st.button("🌐 Lanjutkan Akses via Google Account", use_container_width=True):
             if "@" in simulasi_gmail and "gmail.com" in simulasi_gmail:
+                nama_depan = simulasi_gmail.split("@")[0]
+                st.session_state.db_users[nama_depan] = "oauth_verified_account"
                 st.session_state.is_logged_in = True
-                st.session_state.logged_username = simulasi_gmail.split("@")[0] # Mengambil nama depan email
-                st.toast("Autentikasi Google Berhasil Terhubung!", icon="🌐")
+                st.session_state.logged_username = nama_depan
+                st.toast("Autentikasi Akun Google Berhasil Terhubung!", icon="🌐")
                 time.sleep(0.8)
                 st.rerun()
             else:
-                st.error("Masukkan alamat Gmail yang valid!")
+                st.error("Masukkan format alamat Gmail yang valid!")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    st.stop() # Blokir tampilan chat utama jika belum login sukses
+    st.stop() # Cegah user mengakses halaman obrolan sebelum sukses terverifikasi
 
 # ==========================================
 # 5. SIDEBAR PANEL KONTROL INTERAKTIF (SETELAH LOGIN)
@@ -209,6 +228,7 @@ with st.sidebar:
     if st.button("🚪 Keluar Akun (Log Out)", use_container_width=True, type="secondary"):
         st.session_state.is_logged_in = False
         st.session_state.messages = []
+        st.session_state.prefilled_user = ""
         st.rerun()
         
     st.write("---")
@@ -267,118 +287,4 @@ if "buka_payment_modal" in st.session_state and st.session_state.buka_payment_mo
         if st.button("✅ Bayar Sekarang (Simulasi Sukses)", use_container_width=True, type="primary"):
             st.session_state.user_status = "Premium"
             st.session_state.buka_payment_modal = False
-            st.toast("Pembayaran Terverifikasi! Akun menjadi Premium.", icon="🎉")
-            time.sleep(1)
-            st.rerun()
-    with cb2:
-        if st.button("❌ Batalkan Checkout", use_container_width=True):
-            st.session_state.buka_payment_modal = False
-            st.rerun()
-    st.stop()
-
-# ==========================================
-# 8. MODEL HANDLERS & KODE PARSER WEB
-# ==========================================
-def buat_pengingat(tugas: str, Catal_waktu: str) -> str:
-    return f"Sukses: Agenda '{tugas}' telah dijadwalkan untuk '{Catal_waktu}'."
-
-def hapus_pengingat(nama_tugas: str) -> str:
-    return f"Sukses: Agenda '{nama_tugas}' berhasil dibatalkan dari sistem."
-
-daftar_tools = [buat_pengingat, hapus_pengingat]
-
-def ekstrak_dan_tampilkan_web(teks_ai):
-    pola = r"\s*```[a-zA-Z]*\s*(.*?)\s*```"
-    hasil_pencarian = re.findall(pola, teks_ai, re.DOTALL)
-    if hasil_pencarian:
-        st.markdown('<div class="workspace-card">', unsafe_allow_html=True)
-        st.markdown("### ⚡ **Sumbul AI Web Workspace**")
-        for nama_file, isi_kode in hasil_pencarian:
-            with st.expander(f"📁 Berkas kode: {nama_file.strip()}", expanded=True):
-                st.code(isi_kode.strip(), line_numbers=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ==========================================
-# 9. INISIALISASI SESI GENERASI CHAT
-# ==========================================
-if "chat_session" not in st.session_state:
-    instruksi_sistem = (
-        "Kamu adalah Sumbul AI, asisten robot anak kecil berwujud digital yang super cerdas, ramah, dan asyik diajak bicara.\n"
-        "1. Sebagai Pengelola Jadwal (Dola AI): Jalankan tool 'buat_pengingat' or 'hapus_pengingat' secara otomatis tanpa ragu jika user memberi instruksi waktu.\n"
-        "2. Sebagai Expert Web Architect: Jika diminta coding/website, hasilkan arsitektur kode bersih dan utuh menggunakan struktur wajib:\n"
-        "\n"
-        "```bahasa\nkode\n```"
-    )
-    st.session_state.chat_session = client.chats.create(
-        model=pilihan_model if not (pilihan_model == "gemini-2.5-pro" and st.session_state.user_status == "Gratis") else "gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=instruksi_sistem, tools=daftar_tools, temperature=suhu_kreativitas
-        )
-    )
-
-# ==========================================
-# 10. DISPLAY ANTARMUKA UTAMA CHAT (UI)
-# ==========================================
-st.markdown('<p class="main-title">Sumbul AI</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Sistem Integritas AI Hybrid Modern dengan Akses Akun Terproteksi</p>', unsafe_allow_html=True)
-
-# Merender riwayat pesan lama
-for message in st.session_state.messages:
-    avatar_aktif = AVATAR_USER if message["role"] == "user" else AVATAR_AI_DIAM
-    with st.chat_message(message["role"], avatar=avatar_aktif):
-        st.write(message["content"])
-
-# Kolom Input Percakapan
-input_user = st.chat_input("Ketik instruksi jadwal atau minta buatkan website di sini...")
-
-if input_user:
-    if pilihan_model == "gemini-2.5-pro" and st.session_state.user_status == "Gratis":
-        st.error("🔒 Akses Ditolak: Anda memilih Otak Pro, silakan aktifkan Akun Premium Anda terlebih dahulu di sidebar.")
-    else:
-        st.session_state.messages.append({"role": "user", "content": input_user})
-        st.session_state.total_percakapan += 1
-        with st.chat_message("user", avatar=AVATAR_USER):
-            st.write(input_user)
-
-        with st.chat_message("assistant", avatar=AVATAR_AI_GERAK):
-            container_respons = st.empty()
-            
-            try:
-                respons = st.session_state.chat_session.send_message(input_user)
-                
-                if respons.function_calls:
-                    for panggil_fungsi in respons.function_calls:
-                        argumen = panggil_fungsi.args
-                        if panggil_fungsi.name == "buat_pengingat":
-                            hasil = buat_pengingat(**argumen)
-                        elif panggil_fungsi.name == "hapus_pengingat":
-                            hasil = hapus_pengingat(**argumen)
-                        
-                        respons_balik = st.session_state.chat_session.send_message(
-                            types.Part.from_function_response(
-                                name=panggil_fungsi.name, response={"result": hasil}
-                            )
-                        )
-                        teks_berjalan = ""
-                        for huruf in respons_balik.text:
-                            teks_berjalan += huruf
-                            container_respons.markdown(teks_berjalan + "▌")
-                            time.sleep(0.005)
-                        container_respons.markdown(respons_balik.text)
-                        st.session_state.messages.append({"role": "assistant", "content": respons_balik.text})
-                
-                else:
-                    teks_berjalan = ""
-                    for huruf in respons.text:
-                        teks_berjalan += huruf
-                        container_respons.markdown(teks_berjalan + "▌")
-                        time.sleep(0.003)
-                    container_respons.markdown(respons.text)
-                    
-                    ekstrak_dan_tampilkan_web(respons.text)
-                    st.session_state.messages.append({"role": "assistant", "content": respons.text})
-                    
-                st.rerun()
-                        
-            except Exception as err:
-                st.error(f"Sistem mengalami hambatan: {err}")
+            st.toast("Pembayaran Terverifikasi! Akun menjadi Premium.", icon="
