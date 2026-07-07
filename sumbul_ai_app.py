@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 from PIL import Image
 
-# 1. Konfigurasi Halaman Streamlit (Wajib di paling atas)
+# 1. Konfigurasi Halaman Streamlit
 st.set_page_config(
     page_title="Sumbul AI",
     page_icon="🤖",
@@ -13,13 +13,11 @@ st.set_page_config(
 )
 
 # 2. Mengambil API Key secara aman dari Secrets Streamlit Cloud
-# Anda tidak perlu menulis API Key di sini. Nanti masukkan lewat menu "Manage app" -> "Settings" -> "Secrets"
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     client = genai.Client(api_key=API_KEY)
 except Exception as e:
     st.error("Waduh! API Key 'GEMINI_API_KEY' belum diatur di Secrets Streamlit Cloud Anda.")
-    st.info("Silakan klik 'Manage app' di kanan bawah -> Settings -> Secrets, lalu masukkan: GEMINI_API_KEY = 'API_KEY_ANDA'")
     st.stop()
 
 # ==========================================
@@ -55,7 +53,6 @@ def ekstrak_dan_tampilkan_web(teks_ai):
 # Menampilkan Logo dan Judul
 col1, col2 = st.columns([1, 4])
 with col1:
-    # Memastikan jika berkas logo ada di github
     if os.path.exists("55085-removebg-preview.png"):
         st.image("55085-removebg-preview.png", width=90)
     else:
@@ -100,7 +97,6 @@ for message in st.session_state.messages:
 
 # Input dari pengguna
 if input_user := st.chat_input("Tanya apa saja ke Sumbul AI..."):
-    # Tampilkan chat user
     st.session_state.messages.append({"role": "user", "content": input_user})
     with st.chat_message("user"):
         st.write(input_user)
