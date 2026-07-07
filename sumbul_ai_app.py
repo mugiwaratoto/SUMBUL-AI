@@ -67,7 +67,7 @@ with col2:
 st.write("---")
 
 # Inisialisasi Memori Obrolan (Chat History)
-if "messages" Novelty not in st.session_state:
+if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "chat_session" not in st.session_state:
