@@ -74,10 +74,9 @@ AVATAR_AI_GERAK = "https://media.giphy.com/media/3v1Sz0oTKRsly/giphy.gif"
 # ==========================================
 # 2. SEED STATE & DATABASE LOKAL USER
 # ==========================================
-# Berfungsi sebagai memori penyimpanan akun terdaftar sementara
 if "db_users" not in st.session_state:
     st.session_state.db_users = {
-        "admin": "admin123"  # Akun default bawaan sistem untuk uji coba
+        "admin": "admin123"  
     }
 
 if "is_logged_in" not in st.session_state:
@@ -103,10 +102,6 @@ if "api_gateway_config" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# State pembantu untuk perpindahan tab otomatis pasca registrasi
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = 0
-
 if "prefilled_user" not in st.session_state:
     st.session_state.prefilled_user = ""
 
@@ -127,7 +122,6 @@ if not st.session_state.is_logged_in:
     st.markdown('<p class="main-title">Sumbul AI Access Gateway</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Silakan masuk atau daftarkan akun baru Anda</p>', unsafe_allow_html=True)
     
-    # Mengontrol indeks tab secara dinamis berdasarkan alur registrasi user
     pilihan_tab = ["🔐 Login Akun", "📝 Daftar Akun Baru", "🌐 Sign-in with Google"]
     tab_aktif = st.radio("Pilih Menu Autentikasi:", pilihan_tab, horizontal=True, label_visibility="collapsed")
     
@@ -135,7 +129,6 @@ if not st.session_state.is_logged_in:
         st.markdown('<div class="auth-container">', unsafe_allow_html=True)
         st.markdown("### Masuk ke Aplikasi")
         
-        # Jika user baru daftar, kolom ini otomatis terisi username barunya
         login_user = st.text_input("Username / Email:", value=st.session_state.prefilled_user, key="log_u")
         login_pass = st.text_input("Password:", type="password", key="log_p")
         
@@ -165,9 +158,7 @@ if not st.session_state.is_logged_in:
             elif reg_pass != reg_pass_conf:
                 st.error("Konfirmasi password tidak sesuai!")
             else:
-                # Memasukkan akun baru ke dalam database lokal
                 st.session_state.db_users[reg_user] = reg_pass
-                # Mengisi prefilled agar di menu login user tidak repot mengetik ulang username
                 st.session_state.prefilled_user = reg_user
                 st.success(f"🎉 Registrasi Sukses untuk '{reg_user}'! Akun Anda telah aktif. Silakan beralih ke menu 'Login Akun' di atas untuk masuk.")
                 st.balloons()
@@ -193,7 +184,7 @@ if not st.session_state.is_logged_in:
                 st.error("Masukkan format alamat Gmail yang valid!")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    st.stop() # Cegah user mengakses halaman obrolan sebelum sukses terverifikasi
+    st.stop()
 
 # ==========================================
 # 5. SIDEBAR PANEL KONTROL INTERAKTIF (SETELAH LOGIN)
@@ -247,44 +238,4 @@ with st.sidebar:
                     st.error("Kredensial Admin Salah!")
         else:
             st.write("Operator: **Yunobi** (Sesi Aktif)")
-            if st.button("Keluar Sistem Admin", use_container_width=True):
-                st.session_state.admin_logged_in = False
-                st.rerun()
-
-# ==========================================
-# 6. DASHBOARD UTAMA MANAJEMEN ADMIN
-# ==========================================
-if "admin_logged_in" in st.session_state and st.session_state.admin_logged_in:
-    st.markdown("## 🛠️ Dashboard Administrator Gateway")
-    st.caption("Kelola sistem penagihan API Gateway Payment Anda di sini.")
-    
-    c_adm1, c_adm2 = st.columns(2)
-    with c_adm1:
-        prov = st.selectbox("API Payment Provider:", ["Midtrans", "Xendit", "Stripe"])
-        mode = st.radio("Metode Endpoint:", ["Sandbox / Testing", "Production / Live"])
-    with c_adm2:
-        harga = st.number_input("Nominal Paket Premium (IDR):", value=int(st.session_state.api_gateway_config["harga_premium"]), step=5000)
-        gate_status = st.toggle("Aktifkan Integrasi Sistem", value=True)
-        
-    if st.button("💾 Amankan & Simpan Perubahan", type="primary", use_container_width=True):
-        st.session_state.api_gateway_config = {
-            "provider": prov, "mode": mode, "harga_premium": harga, "status_gateway": "Aktif" if gate_status else "Nonaktif"
-        }
-        st.toast("Konfigurasi API Gateway Disimpan!", icon="💾")
-    st.stop()
-
-# ==========================================
-# 7. INTEGRASI CHECKOUT GATEWAY PREMIUM USER
-# ==========================================
-if "buka_payment_modal" in st.session_state and st.session_state.buka_payment_modal:
-    st.markdown("### 💳 Secure Payment API Gateway Checkout")
-    st.write(f"Provider Gateway: **{st.session_state.api_gateway_config['provider']} ({st.session_state.api_gateway_config['mode']})**")
-    st.info(f"Produk: **Lisensi Akun Premium Sumbul AI**\n\nBiaya: **Rp {st.session_state.api_gateway_config['harga_premium']:,}**")
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SumbulPremiumSimulasi", width=150)
-    
-    cb1, cb2 = st.columns(2)
-    with cb1:
-        if st.button("✅ Bayar Sekarang (Simulasi Sukses)", use_container_width=True, type="primary"):
-            st.session_state.user_status = "Premium"
-            st.session_state.buka_payment_modal = False
-            st.toast("Pembayaran Terverifikasi! Akun menjadi Premium.", icon="
+            if st.button("Keluar Sistem Admin
