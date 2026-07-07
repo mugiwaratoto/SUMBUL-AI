@@ -2,22 +2,20 @@ import streamlit as st
 import os
 import re
 import time
-import requests
 from google import genai
 from google.genai import types
-from streamlit_lottie import st_lottie
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & TEMA ADVANCED
 # ==========================================
 st.set_page_config(
-    page_title="Sumbul AI - NextGen Hybrid OS",
+    page_title="Sumbul AI - Premium OS",
     page_icon="🤖",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS Premium untuk mempercantik Chat Bubble, Efek Glassmorphism, dan Animasi
+# Custom CSS Premium untuk Halaman Login dan Chat Bubble
 st.markdown("""
     <style>
         .main-title {
@@ -27,12 +25,18 @@ st.markdown("""
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 0px;
-            animation: pulse 3s infinite;
         }
         .sub-title {
             font-size: 1.1rem;
             color: #B0B0B0;
             margin-bottom: 25px;
+        }
+        .auth-container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 20px;
         }
         .premium-badge {
             background: linear-gradient(135deg, #D4AF37, #FFD700);
@@ -42,7 +46,6 @@ st.markdown("""
             font-weight: 800;
             font-size: 0.75rem;
             display: inline-block;
-            box-shadow: 0px 0px 10px rgba(255, 215, 0, 0.4);
         }
         .free-badge {
             background-color: #2F3640;
@@ -53,7 +56,6 @@ st.markdown("""
             font-size: 0.75rem;
             display: inline-block;
         }
-        /* Efek kartu modern untuk Workspace Kode */
         .workspace-card {
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.03);
@@ -64,27 +66,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fungsi Pembantu Memuat Animasi Lottie secara Aman
-def load_lottie_url(url: str):
-    try:
-        r = requests.get(url)
-        if r.status_code != 200: return None
-        return r.json()
-    except:
-        return None
-
-# Memuat Aset Animasi Interaktif (Robot Anak Kecil & Gelombang Suara)
-@st.cache_data
-def get_animations():
-    robot = load_lottie_url("https://lottie.host/861be494-b778-4ea7-8b01-e2e4be42c3ff/m2m5H9qO1v.json")
-    thinking = load_lottie_url("https://lottie.host/9f50e9d6-58c0-4f51-b9cf-bb63ba311bfb/tLhW0IovD3.json") # Animasi ombak suara/berpikir
-    return robot, thinking
-
-lottie_robot, lottie_thinking = get_animations()
+# URL Avatar Grafis / Animasi Bergerak
+AVATAR_USER = "👤" 
+AVATAR_AI_DIAM = "🤖" 
+AVATAR_AI_GERAK = "https://media.giphy.com/media/3v1Sz0oTKRsly/giphy.gif" 
 
 # ==========================================
-# 2. SEED STATE MANAGEMENT (SISTEM MEMORI)
+# 2. SEED STATE & DATABASE LOKAL USER
 # ==========================================
+# Database akun terdaftar buatan (untuk simulasi pendaftaran username/password)
+if "db_users" not in st.session_state:
+    st.session_state.db_users = {
+        "user123": "password123"  # Akun bawaan contoh awal
+    }
+
+if "is_logged_in" not in st.session_state:
+    st.session_state.is_logged_in = False
+
+if "logged_username" not in st.session_state:
+    st.session_state.logged_username = ""
+
 if "user_status" not in st.session_state:
     st.session_state.user_status = "Gratis"
 
@@ -94,7 +95,7 @@ if "total_percakapan" not in st.session_state:
 if "api_gateway_config" not in st.session_state:
     st.session_state.api_gateway_config = {
         "provider": "Xendit / Midtrans Gateway",
-        "mode": "Sandbox (Uji Coba)",
+        "mode": "Sandbox",
         "harga_premium": 50000,
         "status_gateway": "Aktif"
     }
@@ -113,13 +114,75 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 4. SIDEBAR PANEL KONTROL INTERAKTIF
+# 4. HALAMAN KHUSUS LOGIN & REGISTRASI (GATEWAY AUTH)
+# ==========================================
+if not st.session_state.is_logged_in:
+    st.markdown('<p class="main-title">Sumbul AI Access Gateway</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Silakan masuk atau buat akun untuk mulai menggunakan Asisten AI</p>', unsafe_allow_html=True)
+    
+    # Membuat Tab untuk membedakan Menu Login dan Daftar Manual
+    tab_login, tab_register, tab_google = st.tabs(["🔐 Login Akun", "📝 Daftar Akun Baru", "🌐 Sign-in with Google"])
+    
+    with tab_login:
+        st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+        login_user = st.text_input("Username / Email:", key="log_u")
+        login_pass = st.text_input("Password:", type="password", key="log_p")
+        if st.button("Masuk Ke Aplikasi", type="primary", use_container_width=True):
+            if login_user in st.session_state.db_users and st.session_state.db_users[login_user] == login_pass:
+                st.session_state.is_logged_in = True
+                st.session_state.logged_username = login_user
+                st.success(f"Selamat datang kembali, {login_user}!")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("Username atau Password salah! Periksa kembali atau daftar akun baru.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with tab_register:
+        st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+        reg_user = st.text_input("Buat Username Baru:", key="reg_u")
+        reg_pass = st.text_input("Buat Password Aman:", type="password", key="reg_p")
+        reg_pass_conf = st.text_input("Ulangi Password:", type="password", key="reg_p_c")
+        
+        if st.button("Daftarkan Akun", use_container_width=True):
+            if not reg_user or not reg_pass:
+                st.error("Form pendaftaran tidak boleh kosong!")
+            elif reg_user in st.session_state.db_users:
+                st.error("Username tersebut sudah terdaftar! Gunakan nama lain.")
+            elif reg_pass != reg_pass_conf:
+                st.error("Konfirmasi password tidak cocok!")
+            else:
+                # Simpan akun baru ke database lokal session
+                st.session_state.db_users[reg_user] = reg_pass
+                st.success("🎉 Pendaftaran Berhasil! Silakan klik Tab 'Login Akun' untuk masuk.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with tab_google:
+        st.markdown('<div class="auth-container" style="text-align:center;">', unsafe_allow_html=True)
+        st.write("Hubungkan langsung menggunakan akun Google / Gmail aktif Anda secara instan.")
+        
+        simulasi_gmail = st.text_input("Masukkan Alamat Gmail Anda:", placeholder="contoh: userbaru@gmail.com", key="g_mail")
+        
+        if st.button("🌐 Lanjutkan via Google Auth Gateway", use_container_width=True, type="secondary"):
+            if "@" in simulasi_gmail and "gmail.com" in simulasi_gmail:
+                st.session_state.is_logged_in = True
+                st.session_state.logged_username = simulasi_gmail.split("@")[0] # Mengambil nama depan email
+                st.toast("Autentikasi Google Berhasil Terhubung!", icon="🌐")
+                time.sleep(0.8)
+                st.rerun()
+            else:
+                st.error("Masukkan alamat Gmail yang valid!")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    st.stop() # Blokir tampilan chat utama jika belum login sukses
+
+# ==========================================
+# 5. SIDEBAR PANEL KONTROL INTERAKTIF (SETELAH LOGIN)
 # ==========================================
 with st.sidebar:
     st.image("55085-removebg-preview.png" if os.path.exists("55085-removebg-preview.png") else "🤖", width=75)
-    st.markdown("### **Sumbul AI Engine v2.5**")
+    st.markdown(f"👋 Halo, **{st.session_state.logged_username}**")
     
-    # Status Keanggotaan dengan Desain Baru
     if st.session_state.user_status == "Premium":
         st.markdown('<div class="premium-badge">✨ MEMBER PREMIUM VIP</div>', unsafe_allow_html=True)
     else:
@@ -127,7 +190,6 @@ with st.sidebar:
     
     st.write("---")
     
-    # Deteksi Otak AI
     pilihan_model = st.selectbox(
         "🧠 Otak AI Aktif:",
         ["gemini-2.5-flash", "gemini-2.5-pro"],
@@ -135,7 +197,6 @@ with st.sidebar:
         help="Model Pro eksklusif membutuhkan aktivasi Premium via API Gateway"
     )
     
-    # Proteksi Paywall Akun Pro
     if pilihan_model == "gemini-2.5-pro" and st.session_state.user_status == "Gratis":
         st.warning("🔒 Model Pro terkunci untuk Akun Gratis.")
         if st.button("💳 Beli Premium Instan", type="primary", use_container_width=True):
@@ -144,21 +205,13 @@ with st.sidebar:
 
     suhu_kreativitas = st.slider("🔥 Gaya Bahasa (Kreativitas):", 0.0, 1.0, 0.4, 0.1)
     
-    # Fitur visual: Tracker interaksi agar tidak terlihat kaku
     st.write("---")
-    st.markdown("**📊 Statistik Sesi Ini:**")
-    st.caption(f"Jumlah Obrolan: {st.session_state.total_percakapan} Perintah")
-    st.progress(min(st.session_state.total_percakapan / 20, 1.0))
-    
-    if st.button("🗑️ Reset Obrolan & Memori", use_container_width=True):
+    if st.button("🚪 Keluar Akun (Log Out)", use_container_width=True, type="secondary"):
+        st.session_state.is_logged_in = False
         st.session_state.messages = []
-        st.session_state.total_percakapan = 0
-        if "chat_session" in st.session_state: del st.session_state["chat_session"]
-        st.toast("Memori Sumbul AI dikosongkan!", icon="🧹")
-        time.sleep(0.5)
         st.rerun()
-
-    # ADMIN GATEWAY AUTHENTICATION
+        
+    st.write("---")
     with st.expander("🔐 Kontrol Admin Panel", expanded=False):
         if "admin_logged_in" not in st.session_state: st.session_state.admin_logged_in = False
         if not st.session_state.admin_logged_in:
@@ -179,7 +232,7 @@ with st.sidebar:
                 st.rerun()
 
 # ==========================================
-# 5. DASHBOARD UTAMA MANAJEMEN ADMIN
+# 6. DASHBOARD UTAMA MANAJEMEN ADMIN
 # ==========================================
 if "admin_logged_in" in st.session_state and st.session_state.admin_logged_in:
     st.markdown("## 🛠️ Dashboard Administrator Gateway")
@@ -201,13 +254,12 @@ if "admin_logged_in" in st.session_state and st.session_state.admin_logged_in:
     st.stop()
 
 # ==========================================
-# 6. INTEGRASI CHECKOUT GATEWAY PREMIUM USER
+# 7. INTEGRASI CHECKOUT GATEWAY PREMIUM USER
 # ==========================================
 if "buka_payment_modal" in st.session_state and st.session_state.buka_payment_modal:
     st.markdown("### 💳 Secure Payment API Gateway Checkout")
     st.write(f"Provider Gateway: **{st.session_state.api_gateway_config['provider']} ({st.session_state.api_gateway_config['mode']})**")
     st.info(f"Produk: **Lisensi Akun Premium Sumbul AI**\n\nBiaya: **Rp {st.session_state.api_gateway_config['harga_premium']:,}**")
-    st.caption("Pindai Kode QRIS atau Selesaikan transfer bank Anda di bawah ini:")
     st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SumbulPremiumSimulasi", width=150)
     
     cb1, cb2 = st.columns(2)
@@ -225,10 +277,10 @@ if "buka_payment_modal" in st.session_state and st.session_state.buka_payment_mo
     st.stop()
 
 # ==========================================
-# 7. MODEL HANDLERS & KODE PARSER WEB
+# 8. MODEL HANDLERS & KODE PARSER WEB
 # ==========================================
-def buat_pengingat(tugas: str, waktu: str) -> str:
-    return f"Sukses: Agenda '{tugas}' telah dijadwalkan untuk '{waktu}'."
+def buat_pengingat(tugas: str, Catal_waktu: str) -> str:
+    return f"Sukses: Agenda '{tugas}' telah dijadwalkan untuk '{Catal_waktu}'."
 
 def hapus_pengingat(nama_tugas: str) -> str:
     return f"Sukses: Agenda '{nama_tugas}' berhasil dibatalkan dari sistem."
@@ -247,12 +299,12 @@ def ekstrak_dan_tampilkan_web(teks_ai):
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 8. INISIALISASI SESI GENERASI CHAT
+# 9. INISIALISASI SESI GENERASI CHAT
 # ==========================================
 if "chat_session" not in st.session_state:
     instruksi_sistem = (
         "Kamu adalah Sumbul AI, asisten robot anak kecil berwujud digital yang super cerdas, ramah, dan asyik diajak bicara.\n"
-        "1. Sebagai Pengelola Jadwal (Dola AI): Jalankan tool 'buat_pengingat' atau 'hapus_pengingat' secara otomatis tanpa ragu jika user memberi instruksi waktu.\n"
+        "1. Sebagai Pengelola Jadwal (Dola AI): Jalankan tool 'buat_pengingat' or 'hapus_pengingat' secara otomatis tanpa ragu jika user memberi instruksi waktu.\n"
         "2. Sebagai Expert Web Architect: Jika diminta coding/website, hasilkan arsitektur kode bersih dan utuh menggunakan struktur wajib:\n"
         "\n"
         "```bahasa\nkode\n```"
@@ -265,14 +317,15 @@ if "chat_session" not in st.session_state:
     )
 
 # ==========================================
-# 9. DISPLAY ANTARMUKA UTAMA CHAT (UI)
+# 10. DISPLAY ANTARMUKA UTAMA CHAT (UI)
 # ==========================================
 st.markdown('<p class="main-title">Sumbul AI</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Sistem Integritas AI Hybrid Modern & Robotik Interaktif</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">Sistem Integritas AI Hybrid Modern dengan Akses Akun Terproteksi</p>', unsafe_allow_html=True)
 
-# Memuat riwayat pesan
+# Merender riwayat pesan lama
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    avatar_aktif = AVATAR_USER if message["role"] == "user" else AVATAR_AI_DIAM
+    with st.chat_message(message["role"], avatar=avatar_aktif):
         st.write(message["content"])
 
 # Kolom Input Percakapan
@@ -284,65 +337,48 @@ if input_user:
     else:
         st.session_state.messages.append({"role": "user", "content": input_user})
         st.session_state.total_percakapan += 1
-        
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=AVATAR_USER):
             st.write(input_user)
 
-        with st.chat_message("assistant"):
-            col_avatar, col_text = st.columns([1, 4])
+        with st.chat_message("assistant", avatar=AVATAR_AI_GERAK):
+            container_respons = st.empty()
             
-            with col_avatar:
-                if lottie_robot:
-                    st_lottie(lottie_robot, height=110, key="robot_talk_active")
-                else:
-                    st.title("🤖")
-            
-            with col_text:
-                container_respons = st.empty()
-                # FITUR BARU: Efek Animasi Gelombang Suara Berpikir (Menghilangkan kesan kaku)
-                if lottie_thinking:
-                    with st.spinner("Sumbul AI sedang berpikir..."):
-                        st_lottie(lottie_thinking, height=45, key="thinking_wave")
-                        time.sleep(0.5) # Memberi jeda animasi halus agar terlihat realistis
+            try:
+                respons = st.session_state.chat_session.send_message(input_user)
                 
-                try:
-                    respons = st.session_state.chat_session.send_message(input_user)
-                    
-                    # LOGIKA EKSEKUSI JADWAL OTOMATIS
-                    if respons.function_calls:
-                        for panggil_fungsi in respons.function_calls:
-                            argumen = panggil_fungsi.args
-                            if panggil_fungsi.name == "buat_pengingat":
-                                hasil = buat_pengingat(**argumen)
-                            elif panggil_fungsi.name == "hapus_pengingat":
-                                hasil = hapus_pengingat(**argumen)
-                            
-                            respons_balik = st.session_state.chat_session.send_message(
-                                types.Part.from_function_response(
-                                    name=panggil_fungsi.name, response={"result": hasil}
-                                )
+                if respons.function_calls:
+                    for panggil_fungsi in respons.function_calls:
+                        argumen = panggil_fungsi.args
+                        if panggil_fungsi.name == "buat_pengingat":
+                            hasil = buat_pengingat(**argumen)
+                        elif panggil_fungsi.name == "hapus_pengingat":
+                            hasil = hapus_pengingat(**argumen)
+                        
+                        respons_balik = st.session_state.chat_session.send_message(
+                            types.Part.from_function_response(
+                                name=panggil_fungsi.name, response={"result": hasil}
                             )
-                            # Efek teks berjalan premium (Streaming)
-                            teks_berjalan = ""
-                            for huruf in respons_balik.text:
-                                teks_berjalan += huruf
-                                container_respons.markdown(teks_berjalan + "▌")
-                                time.sleep(0.005)
-                            container_respons.markdown(respons_balik.text)
-                            st.session_state.messages.append({"role": "assistant", "content": respons_balik.text})
-                    
-                    # LOGIKA TEKS BIASA / GENERATOR WEB
-                    else:
+                        )
                         teks_berjalan = ""
-                        for huruf in respons.text:
+                        for huruf in respons_balik.text:
                             teks_berjalan += huruf
                             container_respons.markdown(teks_berjalan + "▌")
-                            time.sleep(0.003)
-                        container_respons.markdown(respons.text)
+                            time.sleep(0.005)
+                        container_respons.markdown(respons_balik.text)
+                        st.session_state.messages.append({"role": "assistant", "content": respons_balik.text})
+                
+                else:
+                    teks_berjalan = ""
+                    for huruf in respons.text:
+                        teks_berjalan += huruf
+                        container_respons.markdown(teks_berjalan + "▌")
+                        time.sleep(0.003)
+                    container_respons.markdown(respons.text)
+                    
+                    ekstrak_dan_tampilkan_web(respons.text)
+                    st.session_state.messages.append({"role": "assistant", "content": respons.text})
+                    
+                st.rerun()
                         
-                        # Parsing file web secara otomatis ke dalam expander card
-                        ekstrak_dan_tampilkan_web(respons.text)
-                        st.session_state.messages.append({"role": "assistant", "content": respons.text})
-                        
-                except Exception as err:
-                    st.error(f"Sistem mengalami hambatan: {err}")
+            except Exception as err:
+                st.error(f"Sistem mengalami hambatan: {err}")
