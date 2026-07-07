@@ -1,80 +1,78 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import re
+import re, time
 from google import genai
 from google.genai import types
 
-# 1. KONFIGURASI HALAMAN
-st.set_page_config(page_title="Sumbul AI - Integrated Sandbox", layout="wide")
+# --- KONFIGURASI ---
+st.set_page_config(page_title="Sumbul AI OS", layout="wide")
 
-# 2. FUNGSI SANDBOX (Mesin Render Instan)
-def render_sandbox(html_code):
-    """Fungsi untuk merender preview website hasil AI"""
-    components.html(html_code, height=600, scrolling=True)
+# --- INISIALISASI SESSION STATE ---
+if "is_logged_in" not in st.session_state: st.session_state.is_logged_in = False
+if "messages" not in st.session_state: st.session_state.messages = []
 
-# 3. FUNGSI PARSING KODE WEB
+# --- TOOLS & FUNGSI AI ---
+def buat_pengingat(tugas, waktu): return f"✅ Agenda '{tugas}' dijadwalkan untuk '{waktu}'."
 def extract_web_code(text):
-    """Mendeteksi kode HTML dalam respons AI"""
     match = re.search(r"```html(.*?)```", text, re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    return None
+    return match.group(1).strip() if match else None
 
-# 4. INISIALISASI AI
-if "chat_session" not in st.session_state:
-    try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.chat_session = client.chats.create(
-            model="gemini-2.5-pro",
-            config=types.GenerateContentConfig(
-                system_instruction="Kamu adalah Web Architect. Jika diminta membuat web, berikan kode HTML lengkap (termasuk CSS/JS di dalamnya) di dalam blok ```html ... ```."
-            )
-        )
-    except Exception as e:
-        st.error(f"Error API Key: {e}")
+# --- AUTH GATEWAY ---
+if not st.session_state.is_logged_in:
+    st.title("🔐 Sumbul AI Access")
+    user = st.text_input("Username")
+    if st.button("Login"):
+        st.session_state.is_logged_in = True
+        st.session_state.username = user
+        st.rerun()
+    st.stop()
 
-# 5. ANTARMUKA (LAYOUT DUAL-PANE)
-st.title("🤖 Sumbul AI x Integrated Web Sandbox")
+# --- MAIN DASHBOARD ---
+st.title(f"🤖 Sumbul AI | Halo, {st.session_state.username}")
 col1, col2 = st.columns([1, 1])
 
+# LOGIKA AI
+def get_chat():
+    if "chat_session" not in st.session_state:
+        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        st.session_state.chat_session = client.chats.create(
+            model="gemini-2.0-flash",
+            config=types.GenerateContentConfig(
+                system_instruction="Kamu adalah asisten serba bisa. Untuk jadwal gunakan tool 'buat_pengingat'. Untuk web, berikan kode HTML dalam blok ```html...```."
+            )
+        )
+    return st.session_state.chat_session
+
 with col1:
-    st.subheader("Percakapan")
-    if "messages" not in st.session_state: st.session_state.messages = []
-    
-    # Menampilkan riwayat chat
+    st.subheader("Chat Assistant")
     for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+        with st.chat_message(msg["role"]): st.write(msg["content"])
             
-    # Input dari user
-    if prompt := st.chat_input("Contoh: Buat halaman landing page toko baju yang keren..."):
+    if prompt := st.chat_input("Perintah: Buat jadwal / Buat website..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.write(prompt)
         
         with st.chat_message("assistant"):
-            with st.spinner("AI sedang merancang website..."):
-                response = st.session_state.chat_session.send_message(prompt)
+            try:
+                chat = get_chat()
+                response = chat.send_message(prompt)
                 st.write(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
                 
-                # Parsing otomatis
-                code = extract_web_code(response.text)
-                if code:
+                if code := extract_web_code(response.text):
                     st.session_state.last_code = code
-                    st.success("Website terdeteksi! Mengeksekusi sandbox...")
                     st.rerun()
+            except:
+                st.error("Koneksi terputus. Silakan coba lagi.")
+                if "chat_session" in st.session_state: del st.session_state.chat_session
 
 with col2:
-    st.subheader("Live Sandbox Preview")
-    if "last_code" in st.session_state and st.session_state.last_code:
-        render_sandbox(st.session_state.last_code)
-        
-        # Fitur download
-        st.download_button(
-            label="💾 Unduh Hasil Website",
-            data=st.session_state.last_code,
-            file_name="hasil_karya_sumbul.html",
-            mime="text/html"
-        )
+    st.subheader("Live Web Sandbox")
+    if "last_code" in st.session_state:
+        components.html(st.session_state.last_code, height=600, scrolling=True)
+        if st.download_button("💾 Download HTML", st.session_state.last_code, "web.html"):
+            st.success("Tersimpan!")
     else:
-        st.info("Hasil website akan muncul di sini setelah Anda meminta AI membuatnya.")
+        st.info("Minta AI membuat website untuk melihat pratinjau di sini.")
+
+# --- DIAGRAM ALUR KERJA SISTEM ---
