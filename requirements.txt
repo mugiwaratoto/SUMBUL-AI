@@ -1,5 +1,5 @@
 google-genai
 Pillow
 altair
-streamlit-lottie
 requests
+streamlit-lottie
