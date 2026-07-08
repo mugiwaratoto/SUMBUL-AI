@@ -1,7 +1,2 @@
-google-genai
-Pillow
-altair
-requests
-streamlit-lottie
 streamlit
 google-generativeai
