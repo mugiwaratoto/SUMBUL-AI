@@ -1,54 +1,39 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image
-import io
 
-st.set_page_config(page_title="Sumbul AI v2.0", layout="wide")
+st.set_page_config(page_title="Sumbul AI Fix", layout="wide")
 
+# Konfigurasi API
 api_key = st.secrets.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
-# Model Flash buat chat biar super ngebut
-model = genai.GenerativeModel("gemini-1.5-flash")
+# PAKE MODEL 1.0 PRO (Ini paling stabil untuk akun yang sering kena error 404)
+try:
+    model = genai.GenerativeModel("gemini-1.0-pro")
+except Exception:
+    # Fallback kalau model 1.0 pro gak ketemu
+    model = genai.GenerativeModel("gemini-pro")
 
-st.title("🤖 Sumbul AI | Chat & Gambar")
+st.title("🤖 Sumbul AI (Versi Stabil)")
 
-if "messages" not in st.session_state: st.session_state.messages = []
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Fungsi buat generate gambar (Pake model Imagen)
-def generate_image(prompt):
-    try:
-        # Imagen 3 buat generate gambar
-        imagen = genai.GenerativeModel("imagen-3.0-generate-001")
-        result = imagen.generate_content(prompt)
-        # Mengonversi bytes ke gambar
-        image = Image.open(io.BytesIO(result.candidates[0].content.parts[0].image_bytes))
-        return image
-    except Exception as e:
-        return None
-
-# Loop Chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if "image" in msg: st.image(msg["image"])
 
-if prompt := st.chat_input("Tanya atau minta gambarin sesuatu..."):
+if prompt := st.chat_input("Tanya apa lo?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
-
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
     with st.chat_message("assistant"):
-        # Cek apakah user minta gambar
-        if "gambarin" in prompt.lower() or "buatkan gambar" in prompt.lower():
-            with st.spinner("Lagi nge-render gambar..."):
-                img = generate_image(prompt)
-                if img:
-                    st.image(img)
-                    st.session_state.messages.append({"role": "assistant", "content": "Nih gambarnya!", "image": img})
-                else:
-                    st.error("Gagal buat gambar, server lagi sibuk.")
-        else:
-            # Chat biasa (pake Flash biar ngebut)
-            res = model.generate_content(f"Jawab santai: {prompt}")
+        try:
+            # Pake generate_content biasa
+            res = model.generate_content(f"Lo Sumbul AI. Jawab santai/gaul: {prompt}")
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
+        except Exception as e:
+            st.error(f"Error Model: {e}")
+            st.write("Saran: Coba ganti API Key lo pake Gmail lain, akun ini kayaknya kena blacklist.")
