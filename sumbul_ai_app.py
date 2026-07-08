@@ -1,51 +1,54 @@
 import streamlit as st
 import google.generativeai as genai
+from PIL import Image
+import io
 
-st.set_page_config(page_title="Sumbul AI", layout="wide")
+st.set_page_config(page_title="Sumbul AI v2.0", layout="wide")
 
 api_key = st.secrets.get("GEMINI_API_KEY")
-if not api_key:
-    st.error("API Key kosong di Secrets!")
-    st.stop()
-
 genai.configure(api_key=api_key)
 
-# FUNGSI AUTO-DETECT MODEL
-def get_best_model():
-    # Nyari model yang support generateContent dan paling umum dipake
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            # Utamakan model yang ada kata 'flash' karena paling stabil buat akun baru
-            if 'flash' in m.name:
-                return genai.GenerativeModel(m.name)
-    # Fallback ke model pertama yang ketemu
-    return genai.GenerativeModel(genai.list_models()[0].name)
+# Model Flash buat chat biar super ngebut
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-st.title("🤖 Sumbul AI (Auto-Mode)")
+st.title("🤖 Sumbul AI | Chat & Gambar")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "messages" not in st.session_state: st.session_state.messages = []
 
-# Tampilkan history
+# Fungsi buat generate gambar (Pake model Imagen)
+def generate_image(prompt):
+    try:
+        # Imagen 3 buat generate gambar
+        imagen = genai.GenerativeModel("imagen-3.0-generate-001")
+        result = imagen.generate_content(prompt)
+        # Mengonversi bytes ke gambar
+        image = Image.open(io.BytesIO(result.candidates[0].content.parts[0].image_bytes))
+        return image
+    except Exception as e:
+        return None
+
+# Loop Chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        if "image" in msg: st.image(msg["image"])
 
-if prompt := st.chat_input("Tanya apa lo? Gaskeun!"):
+if prompt := st.chat_input("Tanya atau minta gambarin sesuatu..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
+    with st.chat_message("user"): st.markdown(prompt)
+
     with st.chat_message("assistant"):
-        try:
-            # Panggil model yang udah di-detect
-            model = get_best_model()
-            persona = "Lo Sumbul AI, gaya tongkrongan 2026. Santai, agak kasar, solutif."
-            response = model.generate_content(f"{persona} Pertanyaan: {prompt}")
-            
-            st.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-            st.caption(f"Model yang dipake: {model.model_name}")
-            
-        except Exception as e:
-            st.error(f"Masih error nih: {str(e)}")
+        # Cek apakah user minta gambar
+        if "gambarin" in prompt.lower() or "buatkan gambar" in prompt.lower():
+            with st.spinner("Lagi nge-render gambar..."):
+                img = generate_image(prompt)
+                if img:
+                    st.image(img)
+                    st.session_state.messages.append({"role": "assistant", "content": "Nih gambarnya!", "image": img})
+                else:
+                    st.error("Gagal buat gambar, server lagi sibuk.")
+        else:
+            # Chat biasa (pake Flash biar ngebut)
+            res = model.generate_content(f"Jawab santai: {prompt}")
+            st.markdown(res.text)
+            st.session_state.messages.append({"role": "assistant", "content": res.text})
